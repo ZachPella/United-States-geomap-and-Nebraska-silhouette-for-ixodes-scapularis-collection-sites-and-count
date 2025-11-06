@@ -1,0 +1,77 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import geopandas as gpd
+import numpy as np
+
+# Read the data WITHOUT treating first row as header
+df = pd.read_excel('/content/x.xlsx', header=None)
+
+# Count samples per county (county is in column 2)
+county_counts = df.iloc[:, 2].value_counts().to_dict()
+print("Sample counts per county:")
+for county, count in county_counts.items():
+    print(f"  {county}: {count}")
+
+# Load US states shapefile
+states_gdf = gpd.read_file('https://www2.census.gov/geo/tiger/GENZ2018/shp/cb_2018_us_state_20m.zip')
+nebraska = states_gdf[states_gdf['NAME'] == 'Nebraska']
+
+# Nebraska county centroids
+county_coords = {
+    'Sarpy': (-96.0, 41.05),      
+    'Douglas': (-96.1, 41.26),    
+    'Dodge': (-96.6, 41.5),       
+    'Thurston': (-96.5, 42.15)    
+}
+
+# Create the figure
+fig, ax = plt.subplots(1, 1, figsize=(16, 12))
+
+# Plot Nebraska silhouette
+nebraska.boundary.plot(ax=ax, linewidth=3, color='black')
+nebraska.plot(ax=ax, color='#E8E8E8', edgecolor='black', linewidth=3, alpha=0.8)
+
+# Color scheme: Green for Thurston, #FFA500 for others
+county_colors = {
+    'Thurston': '#228B22',   # Green
+    'Sarpy': '#FFA500',      # Orange-Gold
+    'Douglas': '#FFA500',    # Orange-Gold
+    'Dodge': '#FFA500'       # Orange-Gold
+}
+
+legend_elements = []
+
+for county, coords in county_coords.items():
+    if county in county_counts:
+        lon, lat = coords
+        count = county_counts[county]
+        color = county_colors[county]
+        
+        ax.plot(lon, lat, 'o', markersize=18, color=color, 
+                markeredgecolor='black', markeredgewidth=2.5, zorder=5)
+        
+        from matplotlib.lines import Line2D
+        legend_elements.append(Line2D([0], [0], marker='o', color='w', 
+                                     markerfacecolor=color, markeredgecolor='black',
+                                     markeredgewidth=2.5, markersize=12,
+                                     label=f'{county} County (n={count})'))
+
+ax.set_title('Ixodes scapularis - Sample Collection Sites in Nebraska', 
+             fontsize=24, fontweight='bold', style='italic', pad=15)
+
+ax.legend(handles=legend_elements, loc='lower left', fontsize=14, frameon=True, 
+          facecolor='white', edgecolor='black', framealpha=0.95, shadow=True,
+          bbox_to_anchor=(0.01, 0.05), ncol=1)
+
+ax.set_xlabel('')
+ax.set_ylabel('')
+ax.set_xticks([])
+ax.set_yticks([])
+ax.axis('off')
+
+plt.tight_layout()
+plt.savefig('nebraska_map_FFA500.png', dpi=300, bbox_inches='tight', facecolor='white')
+print("\n✓ Map saved as 'nebraska_map_FFA500.png'")
+plt.show()
+
+print(f"\nTotal samples collected: {sum(county_counts.values())}")
