@@ -1,0 +1,88 @@
+import pandas as pd
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.lines import Line2D
+
+# Your tick count data (South Dakota removed)
+data = {
+    'State': ['Nebraska', 'Maryland', 'Texas', 'Oklahoma', 'Wisconsin',
+              'Michigan', 'Florida', 'Alabama', 'Tennessee', 'South Carolina',
+              'North Carolina', 'Maine', 'Virginia', 'Minnesota', 'Iowa',
+              'Kansas', 'Rhode Island'],
+    'Count': [37, 19, 20, 4, 19, 13, 11, 9, 8, 8, 7, 6, 6, 2, 19, 5, 3]
+}
+
+df = pd.DataFrame(data)
+
+# Define which states are from this study
+study_states = ['Nebraska', 'Iowa', 'Kansas']
+
+# Load US states shapefile
+url = 'https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json'
+us_states = gpd.read_file(url)
+
+# Merge the tick count data with the geographic data
+us_states = us_states.merge(df, left_on='name', right_on='State', how='left')
+
+# Create the figure
+fig, ax = plt.subplots(1, 1, figsize=(16, 10))
+
+# Plot all US states in light gray
+us_states.boundary.plot(ax=ax, linewidth=0.8, color='black')
+us_states.plot(ax=ax, color='lightgray', edgecolor='black', linewidth=0.8)
+
+# Highlight the study states with hatching pattern
+study_state_gdf = us_states[us_states['name'].isin(study_states)]
+study_state_gdf.plot(ax=ax, color='#87CEEB', edgecolor='#1E90FF', linewidth=1.5, 
+                     hatch='///', alpha=0.7)
+
+# Add tick counts as text labels on states
+for idx, row in us_states.iterrows():
+    if pd.notna(row['Count']):
+        # Get the centroid of each state for label placement
+        centroid = row['geometry'].centroid
+        ax.text(centroid.x, centroid.y, str(int(row['Count'])),
+                fontsize=14, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='white',
+                         edgecolor='none', alpha=0.8))
+
+# Set title with italicized species name
+ax.text(0.5, 1.05, 'Ixodes scapularis', transform=ax.transAxes,
+        ha='center', fontsize=20, fontweight='bold', style='italic')
+ax.text(0.5, 1.01, 'Count per State', transform=ax.transAxes,
+        ha='center', fontsize=20, fontweight='bold')
+
+# Add legend
+legend_elements = [
+    mpatches.Patch(facecolor='#87CEEB', edgecolor='#1E90FF', linewidth=1.5, 
+                   hatch='///', label='Study States (NE, IA, KS)'),
+    mpatches.Patch(facecolor='lightgray', edgecolor='black', label='Other States')
+]
+ax.legend(handles=legend_elements, loc='lower right', fontsize=12, frameon=True)
+
+# Remove axis labels
+ax.set_xlabel('')
+ax.set_ylabel('')
+ax.set_xticks([])
+ax.set_yticks([])
+ax.axis('off')
+
+# Set map extent to focus on continental US
+ax.set_xlim(-125, -65)
+ax.set_ylim(24, 50)
+
+plt.tight_layout()
+
+# Save the figure as PNG
+plt.savefig('tick_count_map_hatched.png', dpi=300, bbox_inches='tight', facecolor='white')
+print("Map saved as 'tick_count_map_hatched.png'")
+
+plt.show()
+
+# Print summary statistics
+print("\n=== Tick Count Summary ===")
+print(f"Total states analyzed: {len(df)}")
+print(f"Total tick count: {df['Count'].sum()}")
+print(f"Average ticks per state: {df['Count'].mean():.2f}")
+print(f"\nStudy states (NE, IA, KS) - Total count: {df[df['State'].isin(study_states)]['Count'].sum()}")
